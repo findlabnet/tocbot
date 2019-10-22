@@ -1,0 +1,141 @@
+<?php
+
+/**
+ * @file
+ * Creates and automatic table of contents using tocbot js library.
+ */
+
+/**
+ * Implements hook_config_info().
+ */
+function tocbot_config_info() {
+  $prefixes['tocbot.settings'] = array(
+    'label' => t('Tocbot'),
+    'group' => t('Configuration'),
+  );
+  
+  return $prefixes;
+}
+
+/**
+ * Implements hook_menu().
+ */
+function tocbot_menu() {
+  $items['admin/config/content/tocbot'] = array(
+    'title' => 'Tocbot Configuration',
+    'page callback' => 'backdrop_get_form',
+    'page arguments'  => array('tocbot_config_form'),
+    'access arguments' => array('administer site configuration'),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'tocbot.admin.inc',
+    'weight' => -9,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function tocbot_block_info() {
+
+  $blocks = array();
+  $blocks['tocbot_block'] = array(
+    'info' => t('tocbot block'),
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function tocbot_block_view($delta = '') {
+  $config   = config('tocbot.settings');
+  $tocbot_use_local = $config->get('tocbot_use_local');
+  $settings = array();
+
+  // Gather settings to send to tocbot-init.
+  $settings['extrabodyclass']                   = $config->get('tocbot_extrabodyclass');
+  $settings['tocTitle']                         = check_plain($config->get('tocbot_tocTitle'));
+  $settings['minActivate']                      = intval($config->get('tocbot_minActivate'));
+  $settings['createAutoIds']                    = $config->get('tocbot_createAutoIds');
+  $settings['options']['tocSelector']           = $config->get('tocbot_tocSelector');
+  $settings['options']['contentSelector']       = $config->get('tocbot_contentSelector');
+  $settings['options']['headingSelector']       = $config->get('tocbot_headingSelector');
+  $settings['options']['ignoreSelector']        = $config->get('tocbot_ignoreSelector');
+  $settings['options']['linkClass']             = $config->get('tocbot_linkClass');
+  $settings['options']['extraLinkClasses']      = $config->get('tocbot_extraLinkClasses');
+  $settings['options']['activeLinkClass']       = $config->get('tocbot_activeLinkClass');
+  $settings['options']['listClass']             = $config->get('tocbot_listClass');
+  $settings['options']['extraListClasses']      = $config->get('tocbot_extraListClasses');
+  $settings['options']['isCollapsedClass']      = $config->get('tocbot_isCollapsedClass');
+  $settings['options']['collapsibleClass']      = $config->get('tocbot_collapsibleClass');
+  $settings['options']['listItemClass']         = $config->get('tocbot_listItemClass');
+  $settings['options']['collapseDepth']         = intval($config->get('tocbot_collapseDepth'));
+  $settings['options']['orderedList']           = $config->get('tocbot_orderedList');
+  $settings['options']['scrollSmooth']          = $config->get('tocbot_scrollSmooth');
+  $settings['options']['scrollSmoothDuration']  = intval($config->get('tocbot_scrollSmoothDuration'));
+  $settings['options']['throttleTimeout']       = intval($config->get('tocbot_throttleTimeout'));
+  $settings['options']['positionFixedSelector'] = $config->get('tocbot_positionFixedSelector');
+  $settings['options']['positionFixedClass']    = $config->get('tocbot_positionFixedClass');
+  $settings['options']['fixedSidebarOffset']    = $config->get('tocbot_fixedSidebarOffset');
+  $settings['options']['includeHtml']           = $config->get('tocbot_includeHtml');
+
+  $attached = array();
+
+  // Load library.
+  if ($tocbot_use_local && file_exists(backdrop_get_path('module', 'tocbot') . '/libraries/tocbot/dist/4.8.1/tocbot.min.js')) {
+    $attached['js'] = array(
+      backdrop_get_path('module', 'tocbot') . '/libraries/tocbot/dist/4.8.1/tocbot.min.js' => array(
+        'weight' => -20,
+      ),
+    );
+  }
+  else {
+    $attached['js'] = array(
+      "https://cdnjs.cloudflare.com/ajax/libs/tocbot/4.8.1/tocbot.min.js" => array(
+        'type' => 'external',
+        'weight' => -20,
+      ),
+    );
+  }
+  // Load css.
+  if ($tocbot_use_local && file_exists(backdrop_get_path('module', 'tocbot') . '/libraries/tocbot/dist/4.8.1/tocbot.css')) {
+    $attached['css'] = array(
+      backdrop_get_path('module', 'tocbot') . '/libraries/tocbot/dist/4.8.1/tocbot.css' => array(
+        'weight' => -20,
+      ),
+    );
+  }
+  else {
+    $attached['css'] = array(
+      'https://cdnjs.cloudflare.com/ajax/libs/tocbot/4.8.1/tocbot.css' => array(
+        'type' => 'external',
+        'weight' => -20,
+      ),
+      backdrop_get_path('module', 'tocbot') . '/css/tocbot-style.css' => array(),
+    );
+  }
+
+  $attached['js'][backdrop_get_path('module', 'tocbot') . '/js/tocbot-init.js'] = array(
+    'scope' => 'footer',
+    'weight' => 5,
+  );
+
+  // Send settings to Javascript.
+  $attached['js'][] = array('data' => array('tocbot' => $settings), 'type' => 'setting');
+
+  $block = array();
+
+  switch ($delta) {
+    case 'tocbot_block':
+      $block['content'] = array(
+        '#markup' => '<div class="js-toc-block-wrapper"><div class="js-toc-block"></div></div>',
+        '#attached' => $attached,
+      );
+      break;
+  }
+
+  return $block;
+}
